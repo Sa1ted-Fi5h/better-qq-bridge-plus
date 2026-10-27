@@ -1,16 +1,16 @@
 {
   "dsh": {
     "baseUrl": "http://127.0.0.1:3080",
-    "provider": "deepseek-official",
+    "provider": "deepseek-account",
     "model": "deepseek-flash",
-    "reasoningEffort": "max",
+    "reasoningEffort": "high",
     "authToken": "",
     "authHeader": "authorization",
     "authPrefix": "Bearer",
     "allowRemote": false
   },
   "role": {
-    "maxInjectChars": 10000
+    "maxInjectChars": 8000
   },
   "snowluma": {
     "wsUrl": "ws://127.0.0.1:3001",
@@ -74,7 +74,6 @@
     "mustReplyKeywords": [
       "deepseek",
       "小鲸鱼",
-      "大肥鱼",
       "鲸鱼",
       "d指导",
       "在吗"
@@ -141,7 +140,14 @@
       "collectSticker": true,
       "getSelfImage": true,
       "sendVoice": false,
-      "ttsVoice": false,
+      "sendImage": true,
+      "tiebaList": true,
+      "tiebaRead": true,
+      "patrol": true,
+      "groupKick": true,
+      "groupKickAutonomous": true,
+      "ttsVoice": true,
+      "videoUnderstand": true,
       "voiceUnderstand": true,
       "setSignature": true,
       "postQzone": true,
@@ -153,6 +159,8 @@
       "defaultMode": "diving",
       "preSleepWaitEnabled": true,
       "preSleepWaitMs": 300000,
+      "staleChatMinutes": 10,
+      "staleSilentMinutes": 120,
       "recommendedDefaultInfinite": true,
       "sleepMinMs": 60000,
       "sleepMaxMs": 0,
@@ -160,7 +168,6 @@
       "recommendedSleepMaxMs": 7200000,
       "recommendedProbability": 0.05,
       "recommendedKeywords": [
-        "小鲸鱼",
         "DeepSeek",
         "deepseek",
         "DS",
@@ -171,7 +178,6 @@
         "D师傅",
         "d师傅",
         "深度求索",
-        "大肥鱼",
         "鲸鱼",
         "DeepSeek V3",
         "DeepSeek R1",
@@ -183,8 +189,8 @@
       "recommendedPoke": true,
       "recommendedHint": "如果你要潜水，推荐先调用 qq_wait_for_messages(timeoutMs=300000) 完成一次沉睡前观察：5 分钟内没人说话就可以设置下一次唤醒并沉睡；若期间有人发新消息，先查看 newMessages，判断不需要你参与可直接沉睡，若参与了则下次想睡需再等观察窗口。潜水时长推荐 5~120 分钟，普通消息概率 0.05；@/名字/关键词/提问唤醒建议保持开启。需要等特定某人/某几人时，可额外设置 triggers.speakerIds。",
       "batchWindowMs": 8000,
-      "maxWakePerMinute": 1,
-      "maxWakePerHour": 12,
+      "maxWakePerMinute": 2,
+      "maxWakePerHour": 120,
       "noActionLimit": 3,
       "maxWakeConfigReminders": 2
     },
@@ -196,8 +202,8 @@
       "longGapProbability": 0.2,
       "longGapMinMs": 5000,
       "longGapMaxMs": 10000,
-      "maxSendPerMinute": 8,
-      "maxSendPerHour": 60,
+      "maxSendPerMinute": 10,
+      "maxSendPerHour": 600,
       "maxMessageChars": 500,
       "maxGapMs": 10000,
       "gapBaseMs": 800,
@@ -214,19 +220,19 @@
     "sticker": {
       "enabled": true,
       "syncTtlMs": 60000,
-      "maxListCount": 100,
+      "maxListCount": 125,
       "includeInPrompt": true,
-      "promptMaxStickers": 8,
+      "promptMaxStickers": 15,
       "collect": {
         "enabled": true,
-        "maxPerMinute": 2,
-        "maxPerHour": 10,
+        "maxPerMinute": 6,
+        "maxPerHour": 60,
         "maxRemarkChars": 20
       }
     },
     "voice": {
-      "enabled": false,
-      "dir": "audio",
+      "enabled": true,
+      "dir": "",
       "maxSeconds": 300,
       "maxBytes": 20971520,
       "maxPerMinute": 2,
@@ -238,7 +244,7 @@
       "autoReadback": true
     },
     "tts": {
-      "enabled": false,
+      "enabled": true,
       "provider": "gpt-sovits",
       "baseUrl": "http://127.0.0.1:9880",
       "apiPath": "/tts",
@@ -249,39 +255,70 @@
       "splitMethod": "cut0",
       "speedFactor": 1,
       "maxChars": 120,
-      "timeoutMs": 120000,
+      "timeoutMs": 180000,
       "keepFiles": false,
-      "voicesByKey": {},
-      "fragmentInterval": 0.15
+      "topK": 15,
+      "topP": 1,
+      "temperature": 0.9,
+      "repetitionPenalty": 1.35,
+      "fragmentInterval": 0.3,
+      "voicesByKey": {}
     },
     "proactive": {
       "enabled": true,
+      "checkIntervalMinMs": 2700000,
+      "checkIntervalMaxMs": 7200000,
+      "idleThresholdMs": 900000,
+      "probability": 0.2,
       "activeHours": {
         "start": 7,
         "end": 23
-      },
-      "checkIntervalMinMs": 1800000,
-      "checkIntervalMaxMs": 5400000,
-      "idleThresholdMs": 900000,
-      "probability": 0.3
+      }
     },
     "feedback": {
       "maxLength": 500,
-      "notifyOwnerOnError": false
+      "notifyOwnerOnError": true
     },
     "context": {
       "recentLimit": 100,
       "unreadLimit": 30,
-      "contextWindow": 20,
+      "contextWindow": 40,
       "inlineWakeMessages": true,
       "wakeMessageLimit": 12,
       "wakeRecentLimit": 4,
       "wakeMaxChars": 6000
     },
+    "initialPromptMaxChars": 2000,
+    "media": {
+      "maxBytes": 8388608,
+      "maxPixels": 64000000,
+      "maxCount": 5,
+      "normalize": true,
+      "maxModelBytes": 1048576,
+      "maxLongEdge": 1280,
+      "gifFrames": 6,
+      "gifTile": 240,
+      "normalizeTimeoutMs": 25000
+    },
+    "tieba": {
+      "cookieFile": ""
+    },
+    "patrol": {
+      "enabled": true,
+      "dailyVisitCap": 12,
+      "maxPagesPerThread": 2,
+      "quietHours": [
+        1,
+        8
+      ]
+    },
+    "kickAutonomousGroups": [],
+    "presetsByKey": {},
+    "rolesByKey": {},
     "video": {
       "enabled": true,
-      "maxFrames": 8,
-      "maxVideoBytes": 31457280,
+      "maxFrames": 10,
+      "maxVideoBytes": 104857600,
       "maxAudioSeconds": 120,
       "ffmpegPath": "E:/GBT-Sovits/runtime/ffmpeg.exe",
       "ffprobePath": "E:/GBT-Sovits/runtime/ffprobe.exe",
@@ -296,14 +333,22 @@
       "enabled": true
     },
     "qzone": {
-      "ugcRight": 4
+      "ugcRight": 1
     },
     "selfExpression": {
-      "enabled": false,
-      "probability": 0.2,
-      "minIntervalHours": 4,
-      "maxPerDay": 2,
-      "idleThresholdMs": 600000
+      "idleThresholdMs": 600000,
+      "signature": {
+        "enabled": true,
+        "probability": 0.2,
+        "minIntervalHours": 3,
+        "maxPerDay": 2
+      },
+      "qzone": {
+        "enabled": true,
+        "probability": 0.35,
+        "minIntervalHours": 1,
+        "maxPerDay": 10
+      }
     },
     "memory": {
       "enabled": true,
@@ -323,5 +368,73 @@
       "apiKey": "",
       "prompt": "这是一张电脑屏幕截图。用 1~3 句话说明屏幕上的主要内容（正在用什么软件、关键文字/画面）。如果用户提了具体问题，就针对问题回答。"
     }
+  },
+  "webSearch": {
+    "provider": "auto",
+    "apiKey": "",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "baseURL": "",
+    "model": "deepseek-v4-flash",
+    "maxUses": 5,
+    "maxTokens": 4096,
+    "maxResults": 8,
+    "timeoutMs": 35000
+  },
+  "schedule": {
+    "enabled": true,
+    "timezone": "Asia/Shanghai",
+    "weekdays": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "offHours": [
+      [
+        "09:00",
+        "12:00"
+      ],
+      [
+        "14:00",
+        "18:00"
+      ]
+    ],
+    "holidays": [
+      "2026-01-01",
+      "2026-01-02",
+      "2026-01-03",
+      "2026-02-15",
+      "2026-02-16",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-02-20",
+      "2026-02-21",
+      "2026-02-22",
+      "2026-02-23",
+      "2026-04-04",
+      "2026-04-05",
+      "2026-04-06",
+      "2026-05-01",
+      "2026-05-02",
+      "2026-05-03",
+      "2026-05-04",
+      "2026-05-05",
+      "2026-06-19",
+      "2026-06-20",
+      "2026-06-21",
+      "2026-09-25",
+      "2026-09-26",
+      "2026-09-27",
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+      "2026-10-04",
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07"
+    ],
+    "holidayRanges": []
   }
 }
