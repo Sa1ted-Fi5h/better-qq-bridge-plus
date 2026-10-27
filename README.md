@@ -16,7 +16,7 @@ QQ Bridge Plus 把一台真实登录的 QQ 账号接到 DeepSeek Harness（下�
 
 它不是你想象中那种“收到消息就调一次 API 回一段文本”的转发脚本。智能体可以选择不说话：有沉睡、唤醒条件、沉睡前的观察窗口，有主动开口的概率和时间窗，有发送节奏和分条上限。群聊里它会先等 3 秒，看看对方是不是还有下半句，再决定接不接。这些行为由配置和 DSH 侧的人格预设共同决定，模型本身也在做判断。同一套配置在不同模型上，表现会不一样。
 
-会话状态、消息映射、共享记忆、黑话词库、收藏表情这些落盘在 `state/`。本地还有一个控制台（默认 `http://127.0.0.1:3100`），能看会话和连接状态、切模式、换人格卡、逐个开关工具、看日志。模型按会话选，`模型管理.bat` 提供一个终端界面，列表直接从 DSH 的模型目录读。
+会话状态、消息映射、共享记忆、黑话词库、收藏表情这些落盘在 `state/`。本地还有一个控制台（默认 `http://127.0.0.1:3100`），能看会话和连接状态、切模式、换人格卡、逐个开关工具、看日志，还能设置语音合成、视频理解、看屏幕、定时开关、自我表达和三层记忆，并按群绑定人格。模型按会话选，`模型管理.bat` 提供一个终端界面，列表直接从 DSH 的模型目录读。
 
 它还有一套只读的贴吧工具。这不是“让模型回忆贴吧内容”，是桥接真的去抓百度贴吧的页面，把吧页列表、帖子正文、楼层回复和楼层图片取回来交给模型。为什么贴吧要单独配置，后面有整整一节。
 
@@ -42,7 +42,7 @@ QQ Bridge Plus 把一台真实登录的 QQ 账号接到 DeepSeek Harness（下�
 
 接入 SnowLuma、跟 DSH 的会话协议打交道、控制台、人格预设、二代仿真那一整套骨架，基本都是上游打的底子。这些东西不好写。DSH 的鉴权、slash-RPC、`remote.mux` 那一串协议，加上 OneBot 各种消息段和事件顺序的坑，作者是一个一个趟出来的。本项目能站在上面改，是因为上游把这些脏活干完了。谢谢 Derpyu520，也谢谢给上游提过 issue、补过 PR、写过文档的人。
 
-改动之后本项目已经和上游差得比较远，尤其是 `src/core/` 的拆分和贴吧这一块。所以：遇到问题请提到[本仓库的 Issues](https://github.com/adj18311/qq-bridge-plus/issues)，别拿去打扰上游。想用最接近上游的版本，直接去用上游。
+改动之后本项目已经和上游差得比较远，尤其是 `src/core/` 的拆分和贴吧这一块。所以：遇到问题请提到[本仓库的 Issues](https://github.com/Sa1ted-Fi5h/better-qq-bridge-plus/issues)，别拿去打扰上游。想用最接近上游的版本，直接去用上游。
 
 代码用 MIT 许可，见 [LICENSE](LICENSE)，里面的版权行仍然是上游和贡献者的。SnowLuma、DSH 及其他依赖有各自的许可，用之前自己读一遍。`npm ci` 的 `postinstall` 会修补本机安装的 SnowLuma SDK/MCP 副本，这一步会动到你 `node_modules` 里的东西。介意的话先看 [LICENSE](LICENSE) 里的说明。
 
@@ -59,6 +59,15 @@ QQ Bridge Plus 把一台真实登录的 QQ 账号接到 DeepSeek Harness（下�
 - 群聊静默 3 秒。群里最后一条新消息之后只等 3 秒，从首条新消息算起最多再等 6 秒。后面的人继续补话，也不能把这个总期限往后拖。私聊行为不变。
 - group-wait 与唤醒合并。群聊等待策略和唤醒批次窗口各自成模块，明确触发的窗口上限 2 秒、其它 4 秒，并且只缩不放。你配了更短的 1 秒，不会被放大回 8 秒。
 - 人格卡与人格注入上限。`roles/` 里五张卡（小鲸鱼、小鲸鱼-微调、小鲸鱼-微调-无脏话、傲娇助手、测试人格Tmp），注入上限模板值 10000 字符，字段是 `role.maxInjectChars`。
+- 语音：`qq_say`（GPT-SoVITS 合成语音条）与 `qq_voice_text`（QQ 自带转写优先，失败退回本地 Whisper）。
+- 视频理解 `qq_get_video`：抽帧交视觉模型 + ffmpeg 提音轨交 Whisper 转写，兼容视频段/伪装成图片的 mp4/文件形式的 mp4。
+- 看屏幕 `qq_see_screen`：gdigrab 截图 + 视觉模型，仅管理员私聊可用。
+- 三层记忆：SQLite 长期事件 + 滚动摘要 + 唤醒注入，附 `qq_memory_recall` / `qq_memory_remember` 与控制台「记忆管理」。
+- 定时开关：按周几/时段/法定节假日自动暂停，暂停期间不唤醒、不提取黑话，不消耗 token。
+- 自我表达：`qq_set_signature` / `qq_post_qzone`，以及签名/说说两组独立的「自己想起来发」机会。
+- 群管理踢人 `qq_kick_member`：管理员本人在群里或私聊下达；可选「自主踢人」开关与限定群列表。
+- 按群人格：`socialV2.rolesByKey` 让不同群/私聊用不同角色卡，控制台可视化绑定。
+- 桌宠接入：桥接暴露 `/v1/chat/completions`，桌宠指向这里即可与 QQ 共享人格与长期记忆。
 - Windows 下自动发现 DSH Desktop 端点。DSH Desktop 重启后可能换随机端口，桥接会找本机 DSH 进程的监听端口，通过鉴权并核验 `qq-mode` 命名空间之后才切过去。验证不通过就保留原连接继续重试。设 `dsh.autoDiscoverDesktop` 为 `false` 可以关掉，手动固定地址。
 
 **这一版没有额度提醒，也没有额度保护。** 余额耗尽、额度为零这类专项检测、提醒、请求阻断、自动恢复都不在发布范围里。额度类错误不会被单独识别，普通的 429 按限流处理。别把上游文档或别处的描述套到这上面来。
@@ -93,7 +102,7 @@ QQ Bridge Plus 把一台真实登录的 QQ 账号接到 DeepSeek Harness（下�
 4. 拿代码。可以 clone，也可以下发布包解压。解压路径建议纯英文、不带空格，比如 `D:\qq-bridge`。
 
    ```powershell
-   git clone https://github.com/adj18311/qq-bridge-plus.git
+   git clone https://github.com/Sa1ted-Fi5h/better-qq-bridge-plus.git
    cd qq-bridge-plus
    ```
 
@@ -242,7 +251,7 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 
 另外三个工具开关在 `socialV2.tools` 里：`tiebaList`、`tiebaRead`、`patrol`。它们默认就是开的，配置文件里不写也生效，只有明确写成 `false` 才关。想彻底不让它自己逛、只响应你的明确要求，把 `patrol` 设成 `false` 就够了，不用动 `tiebaList` / `tiebaRead`。
 
-要提醒一句：`config.example.json` 里没有 `tieba`、`patrol` 这两节，也没有上面这三个工具开关。模板只是模板。这些字段的默认值来自 `src/core/runtime-config.mjs` 和 `src/tieba-lib.js` 的 `PATROL_DEFAULTS`。加进去就生效，不加就走默认。改完配置记得重启桥接。
+提醒一句：`config.example.json` 现在已包含 `socialV2.tieba` 与 `socialV2.patrol` 两节（Cookie 路径留空）。这些字段的默认值来自 `src/core/runtime-config.mjs` 和 `src/tieba-lib.js` 的 `PATROL_DEFAULTS`。加进去就生效，不加就走默认。改完配置记得重启桥接。
 
 ### 那些限制是什么意思
 
@@ -265,6 +274,78 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 
 顺带一句：Cookie 会过期。哪天它突然又只给搜索降级结果了，先换一份 Cookie，再怀疑别的。
 
+## 本机新增能力（详细）
+
+以下能力是在上游基础上按本机使用场景补的，全部通过控制台或 `config.json` 开关，默认不会越过你设的边界。
+
+### 语音合成 `qq_say`（GPT-SoVITS）
+
+- 本地部署 GPT-SoVITS，启动 `python api_v2.py -a 127.0.0.1 -p 9880`；参考音频 3~10 秒、单人、无 BGM，`prompt_text` 与音频逐字一致效果最好。
+- `socialV2.tts` 可调 `topK` / `topP` / `temperature` / `repetitionPenalty` / `fragmentInterval` / `speedFactor` / `splitMethod`（默认 `cut0`，整句不切分，语音更连贯）。
+- 三处开关都要开：`socialV2.voice.enabled` → `socialV2.tts.enabled` → `socialV2.tools.ttsVoice`。控制台「语音合成」面板可直接改并试听。
+- 跨语言会音素错乱：当 `textLang` 与 `promptLang` 不一致时，桥接会自动忽略 `prompt_text` 退回 zero-shot，日志会写 `[tts] 参考音频语言(...)与合成语言(...)不同`。QQ 语音条是 SILK 压缩，别追求高采样率。
+- `qq_say` 需要重启 DSH 才会出现在 AI 的工具清单里。
+
+### 语音转文字 `qq_voice_text`
+
+- 优先用 QQ 自带转写（`fetch_ptt_text`），失败再用 `get_record` 取音频交给本地 faster-whisper（CPU / int8 / small 模型）。
+- 支持两种形态：直接发的语音，以及「引用某条语音」再说话。
+- 依赖：`E:\GBT-Sovits\runtime\python.exe` + `.whisper\pylibs`（faster-whisper）+ `.whisper\models\small`（可用 `scripts/download-whisper-model.py` 从 ModelScope 拉取）。
+
+### 视频理解 `qq_get_video`
+
+- 下载视频 → ffmpeg 抽帧（1~32 帧，默认 8）交视觉模型；再提音轨交 Whisper 转写，画面与声音一起给。
+- 兼容 QQ 的三种上报形态：`video` 段、伪装成 `image` 的 `.mp4`（`orgfmt=t264`）、`file` 段（走 `get_group_file_url` / `get_private_file_url` 兜底取直链）。
+- 限制：单视频 ≤30MB、同一会话每分钟最多 2 次、需要 ffmpeg 与可用的视觉模型。
+
+### 看屏幕 `qq_see_screen`
+
+- 用 ffmpeg gdigrab 截当前屏幕（最大宽 1600）→ 视觉模型，用文字说明屏幕上是什么。
+- **仅管理员私聊可用**，群里会被拒。API Key 优先级：`socialV2.screen.apiKey` → 环境变量 `DEEPSEEK_API_KEY` → 桌宠透传的凭据（`state/pet-auth.txt`）。
+- 控制台「看屏幕」面板可配模型、最大宽度、服务地址与提示词；截图用完即删，不落盘。
+
+### 三层记忆
+
+- 短期 = DSH 会话上下文；中期 = 滚动摘要（每 20 条压成一段，存在 `state/memory.db` 的 `summaries` 表）；长期 = 重要事件（`events` 表，importance 1~3）。
+- 唤醒时自动注入最近摘要与重要事件（【中期记忆·之前发生过的】【长期记忆·重要的事】）；`qq_memory_recall` 主动检索、`qq_memory_remember` 主动记下。
+- 控制台「记忆管理」：按会话查看/搜索/删除/清空、手动添加、查看摘要。
+- 与自带「记忆快照」的区别：快照只管共享记忆桶（话题/人物印象）的备份与回滚，不参与注入；三层记忆记对话内容，参与注入。
+
+### 定时开关 `schedule`
+
+- 按周几 + 时段（支持跨午夜、多段）+ 法定节假日配置「高峰时段自动暂停」；暂停期间消息入口、主动机会、黑话提取全部跳过，不唤醒、不消耗 token。
+- 控制台「定时开关」面板可视化编辑；`config.json` 顶层 `schedule` 每 60 秒热重载，改完不用重启。
+
+### 自我表达（签名 / 空间说说）
+
+- `qq_set_signature`（≤80 字，1 次/小时）、`qq_post_qzone`（≤500 字，2 次/小时，可见范围可配，默认 4），仅管理员私聊。
+- 自主表达机会 `socialV2.selfExpression.signature` / `.qzone`：各自开关、概率、最小间隔、每日上限；到点后 AI 自己决定发不发，也可以什么都不做。
+
+### 群管理踢人 `qq_kick_member`
+
+- 管理员本人在群里说「踢了某人」或私聊下达；目标必须是真实群成员、不能是管理员自己或机器人、群要在白名单内。
+- `socialV2.tools.groupKick` 总开关；打开 `groupKickAutonomous` 后 AI 可自主判断（此时 `reason` 必填，会写进审计日志）；`kickAutonomousGroups` 可限定只在这些群自主踢。
+
+### 按群人格 `rolesByKey`
+
+- `socialV2.rolesByKey = {"group:群号": "角色名"}`，键也支持裸群号与 `private:QQ号`；配套的 `presetsByKey` 可以给不同会话换不同的 preset（工具面）。
+- 控制台「人格与角色」页有绑定表，改完即时生效，不用重启桥接。
+
+### 桌宠接入
+
+- 桌宠（dsh-pet-standalone-webm-chat）把 `chat.providers.<provider>.base_url`（含 `vision_base_url`）指向 `http://127.0.0.1:3100`，桥接的 `/v1/chat/completions` 会注入管理员私聊的长期记忆，并把请求透传给 DeepSeek。
+- 人格同步：`node scripts/sync-pet-persona.mjs --role 小鲸鱼-微调 --restart`，把角色卡写成桌宠的 system prompt。
+
+### 一键启动与保活
+
+- `QQ大肥鱼一键启动.cmd` → `scripts/start-all.ps1`：按 DSH → QQ → SnowLuma → GPT-SoVITS → qq-bridge 的顺序，隐藏窗口拉起缺的组件，全部就绪后自动打开 SnowLuma 与桥接控制台。
+- 前提：SnowLuma 的 `config/runtime.json` 里 `hookAutoLoad` 要为 `true`（否则不注入 QQ，只起 WebUI）。
+- 保活：计划任务 `qq-bridge keepalive` 每 5 分钟静默检查端口与进程，缺了才补拉（全隐藏，不抢焦点），日志在 `state/keepalive.log`。
+
+### 控制台新增设置
+
+工具开关、语音合成、视频理解、看屏幕、自我表达、定时开关、人格绑定、记忆管理，都在 `http://127.0.0.1:3100` 的侧栏里。
+
 ## 已知限制
 
 - 只在 Windows 11 x64 + DSH Desktop 0.2.1-rc.2 上验过。0.20 不支持，macOS 和 Linux 没上过真机。换别的 DSH 构建、模型供应商或网络环境，不保证端到端跑得通。
@@ -272,7 +353,7 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 - 非正常退出会留下 `state/bridge.lock`，里面是死掉的 PID。下次启动前删掉即可。
 - `npm ci` 会报几个传递依赖的漏洞（1 moderate / 1 high / 1 critical），这一版没处理。
 - 图片发送只放行白名单里的图床域名，本机路径、内网地址、base64 串一律拒绝。这不是限制没做完，是故意的。
-- 语音默认关闭，发布包里不带音频。要用得自己往 `audio/` 放文件再开开关。
+- 语音合成默认关闭，需要自己部署 GPT-SoVITS（`python api_v2.py -a 127.0.0.1 -p 9880`）并填参考音频；视频/语音转写需要 ffmpeg 与本地 Whisper 模型（`scripts/download-whisper-model.py` 可拉取）。
 - 多个 DSH 实例共享同一个 `DSH_HOME` 时，端点自动发现分不清目标，可能选错。这种情况把 `dsh.autoDiscoverDesktop` 设成 `false`，手动指定地址。
 - 529/503 的提示依赖 DSH 真的发出并送达重试事件。桥接只旁观，不自己重放回合，也不能保证每次上游抽风都有提示。
 - 没有全局的 offline / dry-run 开关。想在没网关的情况下试启动，只能把 `snowluma.wsUrl` 指向一个没人听的端口，同时关掉 `followDiscoveredEndpoint`。
@@ -281,7 +362,7 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 
 ## 文档、反馈与致谢
 
-仓库地址：https://github.com/adj18311/qq-bridge-plus
+仓库地址：https://github.com/Sa1ted-Fi5h/better-qq-bridge-plus
 
 更多细节在这些文件里：
 
@@ -293,6 +374,6 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 - [使用规则](RULES.md)
 - [许可](LICENSE)
 
-遇到问题去 [Issues](https://github.com/adj18311/qq-bridge-plus/issues) 提，附上版本、复现步骤和相关日志片段。贴日志之前先检查有没有 QQ 号、群号、Cookie、访问令牌、聊天内容，这些都不该出现在公开的 issue 里。配置文件和 `state/` 目录整体也不要上传。
+遇到问题去 [Issues](https://github.com/Sa1ted-Fi5h/better-qq-bridge-plus/issues) 提，附上版本、复现步骤和相关日志片段。贴日志之前先检查有没有 QQ 号、群号、Cookie、访问令牌、聊天内容，这些都不该出现在公开的 issue 里。配置文件和 `state/` 目录整体也不要上传。
 
 最后再谢一次上游作者 Derpyu520 和所有给 qq-bridge 贡献过代码、文档、issue 的人。这个项目能省下大量摸索的时间，靠的是他们把路先走了一遍。
