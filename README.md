@@ -1,6 +1,6 @@
 # QQ Bridge Plus
 
-![version](https://img.shields.io/badge/version-1.1.0-blue)
+![version](https://img.shields.io/badge/version-1.2.0-blue)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![platform](https://img.shields.io/badge/platform-Windows%2011%20x64-lightgrey)
 ![dsh](https://img.shields.io/badge/DSH-0.2.1--rc.2-orange)
