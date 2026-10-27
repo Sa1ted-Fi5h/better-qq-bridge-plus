@@ -542,10 +542,10 @@ function consolePortInUse() {
     const cfg = readJsonSafe(path.join(ROOT, 'config.json'), {});
     const port = Number(cfg?.consolePort) || 3100;
     if (process.platform === 'win32') {
-      const out = execFileSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const out = execFileSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'utf8', timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
       return new RegExp(`[:.]${port}\\s+\\S+\\s+LISTENING`, 'i').test(out);
     }
-    const out = execFileSync('sh', ['-c', 'ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null || true'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execFileSync('sh', ['-c', 'ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null || true'], { encoding: 'utf8', timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
     return new RegExp(`[:.]${port}\\s`).test(out);
   } catch {
     // 探测不出来时保守认为「有人在跑」，宁可让用户手动删锁，也不要冒双实例的风险。
@@ -6439,6 +6439,12 @@ async function main() {
             const raw = Array.isArray(body.kickAutonomousGroups) ? body.kickAutonomousGroups : String(body.kickAutonomousGroups ?? '').split(/[,，\s]+/);
             merged.kickAutonomousGroups = [...new Set(raw.map(s => String(s).trim()).filter(s => /^\d+$/.test(s)))];
           }
+          // 禁言群白名单 / 自主禁言限定群：数组或逗号分隔字符串，只保留数字群号。
+          for (const field of ['muteGroups', 'muteAutonomousGroups']) {
+            if (body[field] === undefined) continue;
+            const raw = Array.isArray(body[field]) ? body[field] : String(body[field] ?? '').split(/[,，\s]+/);
+            merged[field] = [...new Set(raw.map(s => String(s).trim()).filter(s => /^\d+$/.test(s)))];
+          }
           // wake：数值与字符串数组归一化
           if (body.wake && typeof body.wake === 'object') {
             merged.wake = { ...(current.wake ?? {}), ...body.wake };
@@ -7672,6 +7678,76 @@ async function main() {
           }
           return;
         }
+        // ── 群管理：禁言（管理员本人下达；开启「自主禁言」后 AI 可自主决定） ──
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/group-mute') {
+          const body = await readBody();
+          const key = String(body.key ?? '').trim();
+          const groupId = String(body.groupId ?? body.group_id ?? '').trim();
+          const userId = String(body.userId ?? body.user_id ?? '').trim();
+          const rawDuration = body.durationSeconds ?? body.duration ?? body.duration_seconds;
+          const reason = String(body.reason ?? '').trim().slice(0, 200);
+          if (!key) { sendJson({ ok: false, error: 'key 不能为空' }, 400); return; }
+          if (currentMode !== 'reserved2') { sendJson({ ok: false, error: '该接口仅 reserved2 模式可用' }, 403); return; }
+          if (!req.headers['x-agent-token']) { sendJson({ ok: false, error: 'reserved2 模式禁言必须携带 agent token' }, 403); return; }
+          if (!agentTokenOk(key, req.headers['x-agent-token'])) { sendJson({ ok: false, error: 'agent token 无效' }, 403); return; }
+          if (!v2SessionAllowed(key)) { sendJson({ ok: false, error: '目标不在当前模式允许范围内' }, 403); return; }
+          if (!v2ToolEnabled('groupMute')) { sendJson({ ok: false, error: '工具未启用：qq_mute_member' }, 403); return; }
+          if (socialV2.paused) { sendJson({ ok: false, error: '二代 AI 已暂停，不能执行群管理操作' }, 403); return; }
+          const ownerKey = ownerSessionKeyV2();
+          if (!ownerKey) { sendJson({ ok: false, error: '未配置 ownerQQ，禁止执行群管理操作' }, 403); return; }
+          let commandFromOwner = key === ownerKey;
+          if (!commandFromOwner && key.startsWith('group:')) {
+            const ownerQQ = String(cfg.ownerQQ ?? '').trim();
+            const muteSt = getSocialV2State(key);
+            const recent = Array.isArray(muteSt?.recentMessages) ? muteSt.recentMessages : [];
+            let lastInbound = null;
+            for (let i = recent.length - 1; i >= 0; i -= 1) {
+              if (recent[i] && recent[i].isSelf !== true) { lastInbound = recent[i]; break; }
+            }
+            commandFromOwner = Boolean(ownerQQ && lastInbound
+              && (lastInbound.isOwner === true || String(lastInbound.userId ?? '') === ownerQQ));
+          }
+          const autonomousMute = cfg.socialV2?.tools?.groupMuteAutonomous === true;
+          const autoGroups = Array.isArray(cfg.socialV2?.muteAutonomousGroups) ? cfg.socialV2.muteAutonomousGroups.map(String) : [];
+          const keyGroupId = key.startsWith('group:') ? key.slice(6) : '';
+          const autonomousHere = autonomousMute && (!keyGroupId || autoGroups.length === 0 || autoGroups.includes(keyGroupId));
+          if (!commandFromOwner && !autonomousMute) { sendJson({ ok: false, error: '这个得管理员本人发话才能禁言' }, 403); return; }
+          if (!commandFromOwner && autonomousMute && !autonomousHere) { sendJson({ ok: false, error: '这个群的禁言得管理员本人下达' }, 403); return; }
+          if (!commandFromOwner && autonomousHere && !reason) { sendJson({ ok: false, error: '要禁言得说明理由（比如刷屏、广告，或者就是看他不顺眼）' }, 400); return; }
+          if (!/^[1-9]\d*$/.test(groupId)) { sendJson({ ok: false, error: 'groupId 必须是正整数群号' }, 400); return; }
+          if (!/^[1-9]\d*$/.test(userId)) { sendJson({ ok: false, error: 'userId 必须是正整数 QQ 号' }, 400); return; }
+          if (keyGroupId && groupId !== keyGroupId) { sendJson({ ok: false, error: 'key 与 groupId 不一致：只能在本群执行禁言' }, 400); return; }
+          const gid = Number(groupId);
+          const uid = Number(userId);
+          const muteGroups = Array.isArray(cfg.socialV2?.muteGroups) ? cfg.socialV2.muteGroups.map(String) : [];
+          const allowedGroups = muteGroups.length ? muteGroups : (Array.isArray(cfg.allow?.groups) ? cfg.allow.groups.map(String) : []);
+          if (allowedGroups.length && !allowedGroups.includes(String(gid))) { sendJson({ ok: false, error: '这个群不在禁言白名单里，不能做禁言操作' }, 403); return; }
+          let duration = 600;
+          if (rawDuration !== undefined && rawDuration !== null && rawDuration !== '') {
+            const n = Number(rawDuration);
+            if (!Number.isFinite(n) || n < 0) { sendJson({ ok: false, error: 'durationSeconds 必须是非负整数（0 表示解除禁言）' }, 400); return; }
+            duration = Math.min(2592000, Math.round(n));
+          }
+          if (userId === String(cfg.ownerQQ ?? '').trim()) { sendJson({ ok: false, error: '不能禁言管理员本人哦' }, 403); return; }
+          let selfQQ = '';
+          try { const login = await bot.raw('get_login_info'); selfQQ = String(login?.user_id ?? ''); } catch {}
+          if (selfQQ && userId === selfQQ) { sendJson({ ok: false, error: '不能禁言我自己哦' }, 403); return; }
+          const memberError = await assertGroupMember(gid, uid);
+          if (memberError) { sendJson({ ok: false, error: '这个 QQ 号不在群里，没有可禁言的人' }, 403); return; }
+          try {
+            await bot.raw('set_group_ban', { group_id: gid, user_id: uid, duration });
+            try { groupMemberIdsCache.delete(String(gid)); } catch {}
+            const label = duration === 0 ? '解除禁言' : '禁言 ' + duration + ' 秒';
+            log('[reserved2] 工具禁言' + (commandFromOwner ? '' : '（自主判断）') + ' group:' + gid + ' -> ' + userId + '（' + label + '）' + (reason ? '，原因: ' + reason : ''));
+            appendActivity('group:' + gid + ' [reserved2] 工具禁言 -> ' + userId + '（' + label + '）' + (reason ? '（' + reason + '）' : ''));
+            sendJson({ ok: true, key, groupId: String(gid), userId: String(uid), durationSeconds: duration, reason });
+          } catch (error) {
+            log('[reserved2] 工具禁言失败 group:' + gid + ':', error?.message ?? error);
+            sendJson({ ok: false, error: '没禁成，可能是权限或网络问题，稍后再试' }, 500);
+          }
+          return;
+        }
+
         // ── 表情包体系（reserved2） ──────────────────────────────────────
         if (req.method === 'GET' && url.pathname === '/api/socialV2/sticker-image') {
           if (!stickerEnabled()) { sendJson({ ok: false, error: '表情包体系已关闭' }, 403); return; }

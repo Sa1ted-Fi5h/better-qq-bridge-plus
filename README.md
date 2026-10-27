@@ -66,6 +66,7 @@ QQ Bridge Plus 把一台真实登录的 QQ 账号接到 DeepSeek Harness（下�
 - 定时开关：按周几/时段/法定节假日自动暂停，暂停期间不唤醒、不提取黑话，不消耗 token。
 - 自我表达：`qq_set_signature` / `qq_post_qzone`，以及签名/说说两组独立的「自己想起来发」机会。
 - 群管理踢人 `qq_kick_member`：管理员本人在群里或私聊下达；可选「自主踢人」开关与限定群列表。
+- 群管理禁言 `qq_mute_member`：独立的禁言群白名单、可设时长（0 为解除）、可选「自主禁言」开关与限定群列表。
 - 按群人格：`socialV2.rolesByKey` 让不同群/私聊用不同角色卡，控制台可视化绑定。
 - 桌宠接入：桥接暴露 `/v1/chat/completions`，桌宠指向这里即可与 QQ 共享人格与长期记忆。
 - Windows 下自动发现 DSH Desktop 端点。DSH Desktop 重启后可能换随机端口，桥接会找本机 DSH 进程的监听端口，通过鉴权并核验 `qq-mode` 命名空间之后才切过去。验证不通过就保留原连接继续重试。设 `dsh.autoDiscoverDesktop` 为 `false` 可以关掉，手动固定地址。
@@ -325,6 +326,14 @@ Cookie 等于登录凭据。拿到它的人可以以你的身份操作百度账�
 
 - 管理员本人在群里说「踢了某人」或私聊下达；目标必须是真实群成员、不能是管理员自己或机器人、群要在白名单内。
 - `socialV2.tools.groupKick` 总开关；打开 `groupKickAutonomous` 后 AI 可自主判断（此时 `reason` 必填，会写进审计日志）；`kickAutonomousGroups` 可限定只在这些群自主踢。
+
+### 群管理禁言 `qq_mute_member`
+
+- 管理员本人在群里说「禁言某人」，或私聊下达；群友发这种话会被拒。与踢人同一套 owner 判定（该群最近一条入站消息必须是管理员本人发的）。
+- 独立群白名单：`socialV2.muteGroups`（留空则跟随 `allow.groups`）；自主禁言限定群：`socialV2.muteAutonomousGroups`。
+- 时长：`durationSeconds` 默认 600 秒，`0` 表示解除禁言，上限 2592000 秒（30 天）。
+- `socialV2.tools.groupMute` 总开关；打开 `groupMuteAutonomous` 后 AI 可自主判断（此时 `reason` 必填，写审计日志），但不会禁言管理员本人或机器人自己。
+- 目标必须是群内真实成员；控制台「工具开关」里有对应勾选框与两个群列表输入框。
 
 ### 按群人格 `rolesByKey`
 

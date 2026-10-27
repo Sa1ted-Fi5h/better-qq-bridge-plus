@@ -2072,7 +2072,11 @@ button:active:not(:disabled) {
         <label class="v2-tool-item"><input type="checkbox" data-v2-tool="sendPoke"> <span><b>qq_send_poke</b><span class="meta">发送 QQ 拍一拍（群聊传 targetUserId，私聊可省）</span></span></label>
 <label class="v2-tool-item"><input type="checkbox" data-v2-tool="groupKick"> <span><b>qq_kick_member</b><span class="meta">群管理踢人（管理员本人私聊/群内下达，白名单群内生效）</span></span></label>
 <label class="v2-tool-item"><input type="checkbox" data-v2-tool="groupKickAutonomous"> <span><b>自主踢人</b><span class="meta">允许 AI 自主判断踢人（不会踢管理员自己；高风险，按需开启）</span></span></label>
+<label class="v2-tool-item"><input type="checkbox" data-v2-tool="groupMute"> <span><b>qq_mute_member</b><span class="meta">群管理禁言（管理员本人私聊/群内下达，禁言白名单群内生效）</span></span></label>
+<label class="v2-tool-item"><input type="checkbox" data-v2-tool="groupMuteAutonomous"> <span><b>自主禁言</b><span class="meta">允许 AI 自主判断禁言（不会禁言管理员自己；高风险，按需开启）</span></span></label>
 <div style="display:flex;gap:8px;align-items:center;margin:4px 0 8px 26px;flex-wrap:wrap;"><span style="font-size:12px;color:#888;">自主踢人限定群号</span><input id="v2KickAutoGroups" type="text" placeholder="留空=所有白名单群都可自主踢；多个用逗号分隔" style="flex:0 1 340px;padding:4px 8px;"><span style="font-size:12px;color:#888;">（只有这些群 AI 能自主踢人，其他群仍需你本人下达）</span></div>
+<div style="display:flex;gap:8px;align-items:center;margin:4px 0 8px 26px;flex-wrap:wrap;"><span style="font-size:12px;color:#888;">禁言群白名单（留空=跟随 allow.groups）</span><input id="v2MuteGroups" type="text" placeholder="多个用逗号分隔" style="width:260px;"></div>
+<div style="display:flex;gap:8px;align-items:center;margin:4px 0 8px 26px;flex-wrap:wrap;"><span style="font-size:12px;color:#888;">自主禁言限定群号</span><input id="v2MuteAutoGroups" type="text" placeholder="留空=所有白名单群都可自主禁言；多个用逗号分隔" style="width:300px;"></div>
         <label class="v2-tool-item"><input type="checkbox" data-v2-tool="waitMessages"> <span><b>qq_wait_for_messages</b><span class="meta">短暂等待新消息，有新消息立即返回或超时返回</span></span></label>
         <label class="v2-tool-item"><input type="checkbox" data-v2-tool="feedback"> <span><b>qq_report_feedback</b><span class="meta">向控制台反馈 AI 遇到的问题/困惑</span></span></label>
         <label class="v2-tool-item"><input type="checkbox" data-v2-tool="getMyRecent"> <span><b>qq_get_my_recent_messages</b><span class="meta">查看自己最近发过的消息，避免重复</span></span></label>
@@ -4158,6 +4162,8 @@ async function loadV2Config() {
       el.checked = (c.tools && c.tools[el.dataset.v2Tool] !== false);
     });
     document.getElementById('v2KickAutoGroups').value = Array.isArray(c.kickAutonomousGroups) ? c.kickAutonomousGroups.join(',') : '';
+  document.getElementById('v2MuteGroups').value = Array.isArray(c.muteGroups) ? c.muteGroups.join(',') : '';
+  document.getElementById('v2MuteAutoGroups').value = Array.isArray(c.muteAutonomousGroups) ? c.muteAutonomousGroups.join(',') : '';
     const w = c.wake || {};
     document.getElementById('v2WakeDefaultMode').value = w.defaultMode === 'active' ? 'active' : 'diving';
     document.getElementById('v2RecDefaultInfinite').checked = w.recommendedDefaultInfinite !== false;
@@ -4233,6 +4239,8 @@ async function saveV2Config() {
   document.querySelectorAll('[data-v2-tool]').forEach(el => { tools[el.dataset.v2Tool] = el.checked; });
   const body = {
     kickAutonomousGroups: document.getElementById('v2KickAutoGroups').value.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean),
+      muteGroups: document.getElementById('v2MuteGroups').value.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean),
+      muteAutonomousGroups: document.getElementById('v2MuteAutoGroups').value.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean),
     enabled: document.getElementById('v2Enabled').checked,
     agentPreset: document.getElementById('v2AgentPreset').value.trim(),
     provideRecommendations: document.getElementById('v2ProvideRecommendations').checked,

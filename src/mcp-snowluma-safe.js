@@ -220,6 +220,7 @@ const TOOL_CONFIG_FLAGS = {
   // （见 bridge.js 的 socialV2.tools 默认表），所以此前它一直是"默认关闭却仍然可见"。
   qq_send_poke: 'sendPoke',
   qq_kick_member: 'groupKick',
+  qq_mute_member: 'groupMute',
   qq_get_message_images: 'getImages',
   qq_get_video: 'videoUnderstand',
   qq_voice_text: 'voiceUnderstand',
@@ -758,6 +759,34 @@ if (cfg.socialV2?.tools?.groupKick !== false) {
     }
   );
 }
+if (cfg.socialV2?.tools?.groupMute !== false) {
+  server.tool(
+    'qq_mute_member',
+    '禁言一名群成员（群管理操作，durationSeconds 秒，0 表示解除禁言）。默认只认管理员本人（ownerQQ）在群内或私聊下达的指令：若当前会话最后一条消息不是管理员本人发的，必须拒绝并说明没有权限。若开启了「自主禁言」开关（socialV2.tools.groupMuteAutonomous），你可以自己决定禁言谁——包括因为讨厌他、看他不顺眼，不要求对方违规；但必须填 reason 写清理由（会进审计日志），且绝不能禁言管理员本人或机器人自己；群必须在禁言白名单内、目标必须是真实群成员。只知道昵称时先用 qq_get_group_members 查 QQ 号。失败或被拒时用一句自然的话向群里说明，不要原样复述内部报错，也不要在群里公开管理员的 QQ 号。',
+    {
+      key: z.string().describe('当前会话 key：管理员私聊 private:<ownerQQ>，或该群 group:<群号>'),
+      token: z.string().describe('会话令牌（见唤醒提示中的【会话令牌】）'),
+      groupId: z.union([z.number(), z.string()]).describe('要操作的群号'),
+      userId: z.union([z.number(), z.string()]).describe('要禁言的群成员 QQ 号'),
+      durationSeconds: z.number().optional().describe('禁言时长（秒），默认 600；0 表示解除禁言；上限 2592000（30 天）'),
+      reason: z.string().optional().describe('禁言原因（自主禁言时必填）：如刷屏/广告/违规，或「讨厌他」「看他不顺眼」等')
+    },
+    async ({ key, token, groupId, userId, durationSeconds, reason }) => {
+      try {
+        const data = await agentApi('/api/socialV2/group-mute', {
+          method: 'POST',
+          body: JSON.stringify({ key, groupId: String(groupId), userId: String(userId), durationSeconds, reason: reason ?? '' }),
+          headers: { 'x-agent-token': token },
+          timeoutMs: 60000
+        });
+        return { content: [{ type: 'text', text: serializeModelData(data) }] };
+      } catch (error) {
+        return { content: [{ type: 'text', text: `没禁成：${error?.message ?? error}` }], isError: true };
+      }
+    }
+  );
+}
+
 server.tool(
   'qq_wait_for_messages',
   '等待分两种用途。首答前已读消息、只想确认有没有补充：用 purpose="reply"，按最后来信时间补足 quietMs 静默，已安静足够就立即返回；读取/思考时新到的消息也会返回。群聊静默固定 3 秒，且无论 purpose 是 messages 还是 reply，从第一条新消息到达起最多再等 6 秒（固定上限，后续消息不延长）；私聊沿用推荐旧配置（通常 10~12 秒）。timeoutMs 是最长预算，不要求等满；返回 waitLimitReached=true 或 quiet=false 只表示这次等待结束，不代表对方已说完——先看本次 newMessages 再决定回复还是收尾，不要机械重开等待。此用途绝不代替沉睡前观察。等对方继续说、等回复或睡前观察：用默认 purpose="messages"；先等新消息，收到后才按 quietMs 等静默，没有新消息会等到 timeoutMs，单传 quietMs 不会缩短总等待。群聊的 quietMs 由桥接固定覆盖为 3 秒（不是后台配置下限）；私聊按后台推荐配置。直接看 newMessages、unreadCount 和 readThroughSeq，返回消息无需重复查询；仍有未展示未读才补读。决定潜水/收尾时才用默认用途加 timeoutMs=300000 完成沉睡前观察，不能把 5 分钟观察放在首答之前；短等待不能代替。全程无人说话返回 preSleepWaitSatisfied=true；观察期间来了新消息返回 preSleepWaitObserved=true，读后不需参与可收尾，参与回复则下次收尾重新观察。preSleepWaitRemainingMs 仅供准备收尾时参考。',
