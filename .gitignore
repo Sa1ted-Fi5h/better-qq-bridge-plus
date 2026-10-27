@@ -1,0 +1,119 @@
+# Dependencies
+node_modules/
+.npm-cache/
+
+# Runtime state and local config (never publish)
+state/
+config.json
+*.log
+*.bak
+*.bak-*
+# 本地补丁备份：src/bridge.js.before-<用途>-<ISO时间戳> 等
+# （本地回滚/对照产物，每份数百 KB；重放记录里只引用文件名，不要求文件入库）
+*.before-*
+# 本机控制台令牌的副本（内容等于 state/console-token，state/ 已忽略，这里再兜一层）
+令牌.txt
+# AgentTeams 团队运行态（任务清单 / 成员报告 / 邮箱：本地过程数据）
+.agent-teams/
+# SnowLuma 网关本地安装（第三方 bundle + 本机账号配置 + 日志：体积大且含个人配置）
+SnowLuma/
+
+# Local development / planning / research docs (not part of public project)
+/PROJECT_GUIDE.md
+/ARCH_REVIEW.md
+/DSH_QQ_TOOLS_PLAN.md
+/GEN2_SIMULATION_PLAN.md
+/SOCIAL_MODE_PLAN.md
+/RESEARCH_QQ_MESSAGE_DND.md
+/RESEARCH_SNOWLUMA_EMOJI_STICKER.md
+/SnowLuma功能调研.md
+/真人语感策略.md
+# 花费实测档案：含个人用量数据，且未被任何公开文档引用 —— 默认不发布。
+# （如需公开，删掉这一行并挪到 docs/ 后从 README 链接，避免成为孤儿文件。）
+/TOKEN_COST.md
+
+# 本地模型选型 / 硬件配置调研（内部笔记，无任何公开文档引用）
+/LOCAL_MODEL_SIZING.md
+
+# 大体积演示视频（10.93 MB）：改由 Release 附件托管，README 有链接。
+# 注意：移除只影响此后提交、--depth 1 克隆与 Release 的 Source zip；
+# 历史中的旧 blob 仍在，完整 clone 的体积要等历史重写后才会下降。
+/assets/project-intro.mp4
+
+# Local one-off dev/debug/patch scripts
+# (machine-specific paths/IDs, or bound to artifacts of a single probe run under state/)
+/scripts/cleanup-probe-sessions.mjs
+/scripts/cleanup-probe-workspaces.mjs
+/scripts/cleanup-test-sessions.mjs
+/scripts/debug-whitelist.mjs
+/scripts/diag-archive.mjs
+/scripts/fix-probe-workspace-title.mjs
+/scripts/patch-qq-chat-v2-collect-memory.mjs
+/scripts/patch-qq-chat-v2-presleep.mjs
+/scripts/patch-qq-chat-v2-stickers.mjs
+/scripts/patch-web-mcp-timeout.mjs
+
+
+# 本机专用的隐私扫描规则（含真实 QQ 号/路径，不入库）
+/scripts/privacy-rules.json
+
+# ── 内部文档保护（修复：忽略规则仍指向旧的根目录路径）──────────────────────
+# 上面那批 `/XXX.md` 规则是按**仓库根目录**写的，但这些文档后来整体挪进了 docs/，
+# 旧规则再也匹配不上 —— 于是"原始开发文档不进公开仓库"这条约定静默失效，privacy-scan
+# 在 docs/ 里扫出多份含本机真实路径（含本机用户名与工作盘路径）的文件。这里按新路径补回。
+# 判断依据：① 原 .gitignore 已列出的同义文件；② privacy-scan 实测命中真实路径的文件；
+# ③ 安全审计/发布计划这类"写了怎么绕过"的内部文档。
+docs/audits/
+docs/design/
+docs/legacy/
+docs/research/
+docs/qq-bridge-PUBLISH_PLAN.md
+docs/qq-bridge-SECURITY_AUDIT.md
+docs/guides/PROJECT_GUIDE.md
+docs/guides/VOICE.md
+
+# ── 本轮（2026-10-04 t19）新增的内部过程文档：含本机绝对路径 / 真 QQ 号 / 个人配置 ──
+# 判断依据：privacy-scan 实测这些文件命中「本机绝对路径（Windows 用户目录）」、
+# 「疑似令牌/密钥（高熵串）」（后者其实是备份文件名里的 ISO 时间戳，见 scripts/privacy-rules.json），
+# 或含真白名单 QQ 号。它们是**本机过程记录**（交接提示 / 任务表 / 复盘 / 团队 checklist / 评审记录），
+# 不是承重文档 —— 承重的三份仍入库：LOCAL_PATCHES.md / SHARED_MEMORY_REPLAY.md / SHARED_MEMORY_PATCH.md。
+# 注意：docs/README.md 里对这些条目的登记必须写明「本文件不在公开仓库里」（照 docs/audits/* 的先例），
+# 否则索引会指向没有被提交的文件。
+docs/guides/HANDOFF_PROMPT.md
+docs/guides/NEXT-TASKS.md
+docs/guides/NEXT-TASKS-ROUND2.md
+docs/guides/UPGRADE-RETRO-2026-10-04.md
+docs/guides/TEAM_RUN_CHECKLIST.md
+docs/guides/REVIEW_OUT_OF_TEAM_2026-10-04.md
+# 一次性核对脚本：硬编码了真白名单 QQ 号（只在本机跑过，不发布）
+/scripts/check-whitelist-mode-allowed.mjs
+
+# 语音库（用户个人音频素材，config.json 的 socialV2.voice.dir 指向此处）
+audio/
+
+# ── 备份包 / 压缩包不进仓库（2026-10-05 加固）────────────────────────────────
+# 本机全量备份包（如 D:\BigFish Clone.zip）含 config.json、state/console-token、
+# state/social-v2.json、SnowLuma 数据等敏感内容，绝不能进仓库、更不能随发布外流。
+# 现状：仓库内没有任何被跟踪的压缩包（git ls-files 实测 0 个），故直接拒绝新增；
+# 将来若确需入库某个压缩包，用 git add -f 显式破例。
+*.zip
+*.7z
+*.rar
+*.tar.gz
+*.tgz
+
+# 生成的交付物（由 state/techdoc/build-docx.py 产出，不入版本）
+/QQ bridge.docx
+
+# ── 本机新增运行产物（2026-10-27）──────────────────────────────────────────
+# Whisper 模型与 Python 依赖（800MB，可用 scripts/download-whisper-model.py 重新拉取）
+.whisper/
+# GPT-SoVITS 参考音频与合成产物（个人音频素材）
+TTS/
+# 临时脚本/素材
+.tmp/
+# 本机安装说明（含真实 QQ 号/群号/本机路径，不公开）
+INSTALL-NOTES.md
+# 配置副本（含本机账号与令牌）
+config - *.json
+*副本*.json
